@@ -22,13 +22,8 @@ function getinterface() {
     fi
 }
 
-function checknetwork() {
-    if $verbose; then
-        ping $url -c 1 &>/dev/null && echo "Connected to $1 successfully!" || echo "Did not connect to $1!" && exit 1
-    else
-        dhcpcd $interface &>/dev/null
-        ping $url -c 1 &>/dev/null || exit 1
-    fi
+function connected() {
+    ping $url -c 1 &>/dev/null && return 0 || return 1
 }
 
 ########### functions
@@ -42,7 +37,7 @@ function scan() {
             iw dev $interface scan | grep -e "$interface" -e "signal:" -e "SSID" -e "RSN" -e "WPA" -e "WPS" -e "Privacy:" || \
                 echo "No networks found!" && exit 1
     else
-        iw dev $interface scan | grep -e "SSID" | sed s/[[:space:]]*SSID:[[:space:]]// || \
+        iw dev $interface scan | grep -e "SSID" | sed "s/[[:space:]]*SSID:[[:space:]]//" || \
             exit 1
     fi
 }
@@ -51,42 +46,37 @@ function scan() {
 function disconnect() {
     pkill wpa_supplicant || exit 1
     pkill "iw dev" || exit 1
-    echo "Successfully disconnected!"
 }
 
 # takes an SSID, then connects to it using $interface
 # automatically uses highest level of security
 function connect() {
     getinterface
-    #if $1 is WPA or WPA2; then
-        #read -s -p "Password: " password
-        #echo
-        #$verbose && echo "Connecting to $1..."
-        #wpa_supplicant -D nl80211,wext -i $interface -c <(wpa_passphrase "$1" "$password") &> /dev/null &
-        #password="" # for extra security, i guess
-        #sleep 7 # arbitrary time, have noticed that dhcpcd doesn't stick unless you wait a bit
-        #$verbose && dhcpcd $interface || dhcpcd $interface &>/dev/null
-    #else
-        #if $1 is WEP encrypted; then
-            #read -s -p "Password: " password
-            #echo
-            #iw dev $interface connect "$1" key 0:$password &
-            #password="" # again, i guess for more security?
-        #else
-            #iw dev $interface connect "$1" &
-        #fi
-    #fi
-    #checknetwork $1
+    if [ "$sec" == "WPA" ] || [ "$sec" == "WPA2" ]; then
+        $verbose && echo "Using wpa_supplicant to connect."
+        read -s -p "WiFi Password: " password
+        echo
+        $verbose && echo "Connecting to $1..."
+        wpa_supplicant -D nl80211,wext -i $interface -c <(wpa_passphrase "$1" "$password") &> /dev/null &
+        unset $password
+    else
+        $verbose && echo "Using iw to connect."
+        read -s -p "WiFi Password: " password
+        echo
+        iw dev $interface connect "$1" key 0:$password &
+        unset $password
+    fi
 }
 
 ########### parse options
 
 function usage() {
     cat <<EOF
-usage: $(basename $0) [-v] [-hSD] [-u url] [-C wifi_name]
+usage: $(basename $0) [-v] [-hSD] [-u url] [-s sec] [-C wifi_name] 
          -S         scan for available wifi networks, print their SSIDs, and exit
          -D         disconnect from all wifi networks and exit
          -u url     specify url for test pinging when connecting
+         -s sec     treat this wifi connection like sec security type (e.g. WPA2, WEP)
          -C ssid    connect to network with an SSID of ssid and exit
          -h         display this message and exit
          -v         activate verbose mode
@@ -94,13 +84,16 @@ usage: $(basename $0) [-v] [-hSD] [-u url] [-C wifi_name]
 EOF
 }
 
-while getopts "vhSDC:u:" opt; do
+while getopts "vhSDC:u:s:" opt; do
     case $opt in
         v) verbose=true ;;
         h) usage; exit 0 ;;
         S) scan; exit 0 ;;
         D) disconnect; exit 0 ;;
-        C) connect "$OPTARG" ; exit 0 ;;
+        C) connect "$OPTARG" ; 
+            $verbose && dhcpcd $interface || dhcpcd $interface &>/dev/null
+            exit 0 ;;
+        s) sec="$OPTARG" ;;
         u) url="$OPTARG" ;;
         ?) usage; exit 1 ;;
     esac
