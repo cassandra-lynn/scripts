@@ -51,6 +51,7 @@ function disconnect() {
 # takes an SSID, then connects to it using $interface
 # automatically uses highest level of security
 function connect() {
+    disconnect
     getinterface
     if [ "$sec" == "WPA" ] || [ "$sec" == "WPA2" ]; then
         $verbose && echo "Using wpa_supplicant to connect."
