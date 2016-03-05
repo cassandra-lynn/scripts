@@ -83,19 +83,23 @@ usage: $(basename $0) [-v] [-hSD] [-u url] [-s sec] [-C wifi_name]
                      * without verbose mode, will silently error
 EOF
 }
-
-while getopts "vhSDC:u:s:" opt; do
-    case $opt in
-        v) verbose=true ;;
-        h) usage; exit 0 ;;
-        S) scan; exit 0 ;;
-        D) disconnect; exit 0 ;;
-        C) connect "$OPTARG" ; 
-            $verbose && dhcpcd $interface || dhcpcd $interface &>/dev/null
-            exit 0 ;;
-        s) sec="$OPTARG" ;;
-        u) url="$OPTARG" ;;
-        ?) usage; exit 1 ;;
-    esac
-done
+if [ $EUID = 0 ]; then
+    while getopts "vhSDC:u:s:" opt; do
+        case $opt in
+            v) verbose=true ;;
+            h) usage; exit 0 ;;
+            S) scan; exit 0 ;;
+            D) disconnect; exit 0 ;;
+            C) connect "$OPTARG" ; 
+                $verbose && dhcpcd $interface || dhcpcd $interface &>/dev/null
+                exit 0 ;;
+            s) sec="$OPTARG" ;;
+            u) url="$OPTARG" ;;
+            ?) usage; exit 1 ;;
+        esac
+    done
+else
+    echo "This script must be run as root!"
+    exit 1
+fi
 
