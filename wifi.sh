@@ -44,8 +44,8 @@ function scan() {
 
 # kills all running instances of wpa_supplicant and iw dev
 function disconnect() {
-    pkill wpa_supplicant || exit 1
-    pkill "iw dev" || exit 1
+    pkill wpa_supplicant 
+    pkill "iw dev" 
 }
 
 # takes an SSID, then connects to it using $interface
