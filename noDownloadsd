@@ -1,0 +1,10 @@
+#!/bin/sh
+# keeps a ~/Downloads folder from being created because fuck that
+#
+# depends on inotify, rm, and grep
+# written by ercas ( www.github.com/ercas/ )
+while true; do
+    if inotifywait -e create $HOME | grep Downloads$; then
+        rm -r Downloads
+    fi
+done &> /dev/null
